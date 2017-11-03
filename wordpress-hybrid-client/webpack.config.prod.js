@@ -4,11 +4,9 @@ var path = require('path'),
     libPath = path.join(__dirname, 'lib'),
     distPath = path.join(__dirname, 'dist'),
     pkg = require('./package.json'),
-    cordovaLib = require('cordova').cordova_lib,
+    parserXml = require('xml2js'),
     extend = require('util')._extend,
-    deepExtend = require('deep-extend'),
-    CSON = require('cson'),
-    projectConfig = deepExtend(CSON.requireFile('./config/config.default.cson'), CSON.requireFile('./config/config.cson')),
+    projectConfig = require('./config.prod.json'),
     webpackConfig = require('./webpack.config.js'),
     HtmlWebpackPlugin = require('html-webpack-plugin');
 
@@ -17,7 +15,6 @@ module.exports = extend(webpackConfig, {
         new HtmlWebpackPlugin({
             filename: 'index.html',
             pkg: pkg,
-            serviceWorkerEnabled: projectConfig.serviceWorker.enabled,
             appVersion: getAppVersion(),
             template: path.join(libPath, 'index.html')
         }),
@@ -32,10 +29,14 @@ module.exports = extend(webpackConfig, {
 });
 
 function getRegexAutorizedLanguages() {
-    return new RegExp(projectConfig.translation.displayed.join('|'));
+    return new RegExp(Object.keys(projectConfig.translation.available).join('|'));
 }
 
 function getAppVersion() {
-    var config = new cordovaLib.configparser(__dirname + '/config.xml');
-    return config.version();
+    var version,
+        config = fs.readFileSync(__dirname + '/config.xml');
+    parserXml.parseString(config, function(err, result) {
+        version = result.widget.$.version;
+    });
+    return version;
 }

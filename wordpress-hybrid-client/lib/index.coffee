@@ -1,69 +1,54 @@
 # Create namespace
 window.WPHC = window.WPHC || {}
 
-require 'ionic-angular/release/js/ionic.bundle.js'
-require './angular-ios9-uiwebview.patch.js'
+require 'angular'
+require 'angular-animate'
+require 'angular-sanitize'
+require 'angular-aria'
+require 'angular-ui-router'
+require 'angular-translate'
 require 'angular-cache'
 require 'angular-moment'
+require 'angular-filter'
+require 'ionic-sdk/release/js/ionic'
+require 'ionic-sdk/release/js/ionic-angular'
 require 'moment'
 require './font/font.coffee'
+
+# lodash is a restangular dependency that is bundled in wp-api-angularjs.bundle
 require 'expose?_!lodash'
-require 'wp-api-angularjs'
-require './config.js'
-require "./service-worker.js";
-overwriteModule = require '../config/index.js'
-customPostsModule = require './customPosts/index.js'
-pagesModule = require './pages/index.js'
-postsModule = require './posts/index.js'
-searchModule = require './search/index.js'
-authorsModule = require './authors/index.js'
-taxonomiesModule = require './taxonomies/index.js'
-filtersModule = require './filters/index.js'
-directivesModule = require './directives/index.js'
-languageModule = require './language/index.js'
-templatesModule = require './templates/index.js'
-paramsModule = require './params/index.js'
-menuModule = require './menu/index.js'
-bookmarkModule = require './bookmark/index.js'
-accessibilityModule = require './accessibility/index.js'
-loadingModule = require './loading/index.js'
-pushNotificationsModule = require './pushNotifications/index.js';
+require 'wp-api-angularjs/dist/wp-api-angularjs.bundle'
 
 # Style entry point
 require './scss/bootstrap'
 
 module.exports = app = angular.module 'wordpress-hybrid-client', [
     'ionic'
-    'ngIOS9UIWebViewPatch'
-    'wordpress-hybrid-client.config'
+    require('./config').name
     'ui.router'
     'wp-api-angularjs'
+    'pascalprecht.translate'
     'angular-cache'
     'angularMoment'
-    customPostsModule
-    filtersModule
-    pagesModule
-    taxonomiesModule
-    postsModule
-    searchModule
-    authorsModule
-    languageModule
-    paramsModule
-    menuModule
-    bookmarkModule
-    accessibilityModule
-    loadingModule
+    'angular.filter'
+    require('./taxonomies/taxonomies.module').name
+    require('./bookmark/bookmark.module').name
+    require('./post/post.module').name
+    require('./posts/posts.module').name
+    require('./search/search.module').name
+    require('./menu/menu.module').name
     require('./cordova/cordova.module').name
+    require('./params/params.module').name
+    require('./about/about.module').name
+    require('./language/language.module').name
+    require('./accessibility/accessibility.module').name
     require('./cacheImg/cacheImg.module').name
     require('./syntaxHighlighter/syntaxHighlighter.module').name
     require('./init/init.module').name
-    directivesModule
-    templatesModule
-    overwriteModule
-    pushNotificationsModule
+    require('./directives/directives.module').name
 ]
 
-app.config ($stateProvider, $urlRouterProvider) ->
+app.config ($stateProvider) ->
     $stateProvider
     .state 'public',
     url: "/public"
@@ -72,37 +57,56 @@ app.config ($stateProvider, $urlRouterProvider) ->
         '@' :
             template: require "./views/ion-menu.html"
             controller: "WPHCMainController as main"
-
-    $urlRouterProvider.otherwise ($injector, $location) ->
-        $WPHCConfig = $injector.get('$WPHCConfig');
-        $state = $injector.get('$state');
-        $state.go _.get($WPHCConfig, 'menu.defaultState.state'), _.get($WPHCConfig, 'menu.defaultState.params')
+        'menu@public':
+            template: require "./menu/menu.html"
+            controller: "WPHCMenuController as menu"
 
 ###
 ANGULAR CONF
 ###
-app.config ($logProvider, $compileProvider) ->
-    $logProvider.debugEnabled if IS_PROD then false else true
-    $compileProvider.debugInfoEnabled if IS_PROD then false else true
+app.config ($WPHCConfig, $logProvider, $compileProvider) ->
+    debugEnabled = _.get($WPHCConfig, 'debugEnabled') || false
+    $logProvider.debugEnabled debugEnabled
+    $compileProvider.debugInfoEnabled debugEnabled
 
 ###
 IONIC CONF
 ###
-app.config require('./config/ionic.config.coffee');
+app.config ($WPHCConfig, $ionicConfigProvider) ->
+    $ionicConfigProvider.views.maxCache _.get($WPHCConfig, 'cache.views') || 10
+    $ionicConfigProvider.views.forwardCache _.get($WPHCConfig, 'cache.forward') || false
+    $ionicConfigProvider.scrolling.jsScrolling false
 
 ###
 REST CONF
 ###
-app.config ($WPHCConfig, WpApiProvider, $httpProvider) ->
-    WpApiProvider.setDefaultHttpProperties
+app.config ($WPHCConfig, WpApiProvider, $ionicConfigProvider) ->
+    RestangularProvider = WpApiProvider.getRestangularProvider()
+    RestangularProvider.setDefaultHttpFields
         timeout: _.get($WPHCConfig, 'api.timeout') || 5000
-    WpApiProvider.setBaseUrl _.get($WPHCConfig, 'api.baseUrl') || null
-    $httpProvider.defaults.cache = false
-    $httpProvider.interceptors.push ($log, $q, $injector, $WPHCConfig) ->
-        request: (config) ->
-            if _.startsWith config.url, $WPHCConfig.api.baseUrl
-                config.headers['Accept-Language'] = $injector.get('$WPHCLanguage').getLocale()
-            config || $q.resolve config
+    RestangularProvider.setBaseUrl _.get($WPHCConfig, 'api.baseUrl') || null
+    RestangularProvider.setFullResponse true
+    RestangularProvider.addResponseInterceptor (data, operation, what, url, response, deferred) ->
+        data.wpApiHeaders =
+            total: response.headers 'X-WP-Total'
+            pages: response.headers 'X-WP-TotalPages'
+        data
+    RestangularProvider.setRestangularFields
+        id: "ID"
+
+###
+TRANSLATION CONF
+###
+app.config ($translateProvider, $WPHCLanguageProvider) ->
+    languages = $WPHCLanguageProvider.getLanguages()
+    for i, language of languages
+        $translateProvider.translations language, require './translations/' + language
+
+    $translateProvider
+        .preferredLanguage $WPHCLanguageProvider.getPreferedLanguage()
+        .registerAvailableLanguageKeys languages, $WPHCLanguageProvider.getLanguagesMapping()
+        .fallbackLanguage 'en'
+        .useSanitizeValueStrategy 'escape'
 
 ###
 CACHE CONF
@@ -114,7 +118,7 @@ app.config ($WPHCConfig, CacheFactoryProvider) ->
 MEMORY STATS CONF
 ###
 app.config ($WPHCConfig, $compileProvider) ->
-    $compileProvider.debugInfoEnabled if IS_PROD then false else true
+    $compileProvider.debugInfoEnabled _.get($WPHCConfig, 'debugEnabled') || false
 
 ###
 MAIN CONTROLLER
@@ -127,34 +131,22 @@ app.controller 'WPHCMainController' , ($log, $WPHCConfig) ->
     vm.appVersion = wordpressHybridClient.version || null
     vm.appConfig = $WPHCConfig
     vm.appTitle = vm.appConfig.title || null
-    vm.displayIcon = vm.appConfig.menu.displayIcon
     vm
 
 ###
 RUN
 ###
-app.run ($rootScope, $log, $WPHCConfig, $translate, $document, $WPHCLanguage, $ionicPlatform, $WPHCAccessibility, $cordovaSplashscreen, $WPHCInit) ->
-    'ngInject';
+app.run ($rootScope, $log, $WPHCConfig, $translate, $WPHCLanguage, $ionicPlatform, $WPHCAccessibility, $cordovaSplashscreen, $WPHCInit) ->
     $rootScope.appLoaded = undefined
-    stateChangeTimeout = null
+
     # handling debug events
-    if !IS_PROD
+    if $WPHCConfig.debugEnabled
         $rootScope.$on '$stateNotFound', (event, unfoundState, fromState, fromParams) ->
             $log.info '$stateNotFound', unfoundState
         $rootScope.$on '$stateChangeError', (event, toState, toParams, fromState, fromParams, error) ->
             $log.info '$stateChangeError', error
 
     $WPHCAccessibility.updateBodyClass()
-    
-    $rootScope.$on '$stateChangeSuccess', (event, toState, toParams, fromState, fromParams) ->
-        $log.debug 'stateChangeSuccess', toState, toParams, fromState, fromParams
-        clearTimeout stateChangeTimeout
-        fromStateClass = if fromState.class then _.template(fromState.class)(fromParams) else fromState.name
-        toStateClass = if toState.class then _.template(toState.class)(toParams) else toState.name
-        stateChangeTimeout = setTimeout () ->
-            $document.find('html').removeClass _.kebabCase(fromStateClass)
-        , 500
-        $document.find('html').addClass _.kebabCase(toStateClass)
 
     $ionicPlatform.ready () ->
         $WPHCInit.init().finally ()->

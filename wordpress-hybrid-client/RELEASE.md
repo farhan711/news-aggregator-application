@@ -1,6 +1,6 @@
 # Release
 
-Male sure you have ios and/or android platforms installed. If you are not sure go back to [BUILD.md](BUILD.md).
+Male sure you have ios and/or android platforms installed. If you have correctly ran ```npm run installCordova``` it should be fine otherwise go back to [BUILD.md](BUILD.md).
 
 ## Android
 
@@ -8,23 +8,13 @@ Male sure you have ios and/or android platforms installed. If you are not sure g
 
 <https://support.google.com/googleplay/android-developer/answer/186113?hl=en>
 
-```
-keytool -genkey -v -keystore <my-release-key.keystore> -alias <alias_name> -keyalg RSA -keysize 2048 -validity 10000
-```
+Copy and past the key within your ```~/.ssh``` folder with that name ```android_wphc.keystore```
 
-Change `<my-release-key.keystore>` and `<alias_name>` accordingly also in the `release.sh` file:
+NB: You can put the key wherever you want and even give it another name but if you do that, you will need to modify ```release.sh``` accordingly.
 
-```
-ANDROID_ZIPALIGN="/path/to/Android/sdk/build-tools/21.1.2/zipalign"
-ANDROID_KEY_PATH="/path/to/keystore/my-release-key.keystore"
-ANDROID_KEY_ALIAS="alias_name"
-```
+### Keyboard adjustement
 
-### Keyboard adjustment
-
-Some Android versions can have a problem when the keyboard pops up (little hiccup of the app). If it the case on your app it can be prevented:
-
-Open ```platforms/android/AndroidManifest.xml``` and change ```android:windowSoftInputMode="adjustResize"``` into ```android:windowSoftInputMode="adjustNothing"```.
+Open ```platforms/android/AndroidManifest.xml``` and change ```android:windowSoftInputMode="adjustResize"``` into ```android:windowSoftInputMode="adjustNothing"``` it will prevent screen hiccup when searching.
 
 ### Build PROD APKs
 
@@ -32,7 +22,7 @@ Open ```platforms/android/AndroidManifest.xml``` and change ```android:windowSof
 npm run build
 ```
 
-Then answer to the prompt. When you are done, you should have your `.apk` files dumped into the `build` folder at the project root: https://github.com/shprink/wordpress-hybrid-client/tree/develop/build
+Then answer to the prompt.
 
 ## iOS
 
@@ -44,11 +34,7 @@ Then answer to the prompt. When you are done, you should have your `.apk` files 
 
 <http://codewithchris.com/submit-your-app-to-the-app-store/>
 
-### Install via Xcode
-
-<http://codewithchris.com/submit-your-app-to-the-app-store/>
-
-### Install Via terminal (experimental)
+### Install sigh
 
 Sigh allow to sign .app with a provisioning file via the terminal
 
@@ -57,7 +43,7 @@ Sigh allow to sign .app with a provisioning file via the terminal
 sudo gem install sigh
 ```
 
-#### Build PROD IPA
+### Build PROD IPA
 
 ```
 npm run build
@@ -65,22 +51,12 @@ npm run build
 
 Then answer to the prompt.
 
-#### Use XCode or Application Loader
+### Use XCode or Application Loader
 
 Once the IPA is signed, all you need to do is sending the package to Apple for review.
 
 ### Frequent errors
 
-#### iOS: Submitting iOS app to app store application identifier invalid
+#### Submitting iOS app to app store application identifier invalid
 
 <http://stackoverflow.com/questions/20120128/submitting-ios-app-to-app-store-application-identifier-invalid>
-
-#### iOS: Signing for "XXXX" requires a development team. Select a development team in the project editor.
-
-<http://stackoverflow.com/questions/39524148/requires-a-development-team-select-a-development-team-in-the-project-editor-cod>
-
-#### iOS: duplicate symbols for architecture armv7
-
-<http://stackoverflow.com/questions/39512823/duplicate-symbols-for-architecture-arm64-after-xcode-8-0-update>
-
-![image](https://cloud.githubusercontent.com/assets/1388706/20237394/2d95e7de-a8d1-11e6-9e84-139808b559d2.png)

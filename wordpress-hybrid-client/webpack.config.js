@@ -1,14 +1,11 @@
 var path = require('path'),
     fs = require('fs'),
-    _ = require('lodash'),
     webpack = require("webpack"),
     libPath = path.join(__dirname, 'lib'),
     wwwPath = path.join(__dirname, 'www'),
     pkg = require('./package.json'),
-    cordovaLib = require('cordova').cordova_lib,
-    deepExtend = require('deep-extend'),
-    CSON = require('cson'),
-    projectConfig = deepExtend(CSON.requireFile('./config/config.default.cson'), CSON.requireFile('./config/config.cson')),
+    parserXml = require('xml2js'),
+    projectConfig = require('./config.json'),
     HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
@@ -18,10 +15,10 @@ module.exports = {
         filename: 'bundle-[hash:6].js'
     },
     module: {
-
-        noParse: [/autoit.js/],
-
         loaders: [{
+            test: /[\/]angular\.js$/,
+            loader: 'expose?angular!exports?window.angular'
+        }, {
             test: /[\/]highlight\.js$/,
             loader: 'expose?hljs'
         }, {
@@ -31,25 +28,14 @@ module.exports = {
             test: /[\/]ionic\.js$/,
             loader: 'exports?ionic' // For non commonJs
         }, {
-            test: /service-worker\.js$/,
-            loaders: [
-                'file-loader?name=[name].[ext]',
-                `string-replace-loader?search=SERVICE_WORKER_VERSION&replace="${getAppVersion()}"`
-            ],
-            include: libPath
-        }, {
-            test: /\.js$/,
-            exclude: /(node_modules|bower_components)/,
-            loader: "ng-annotate?add=true!babel"
-        }, {
             test: /\.html$/,
             loader: 'html'
         }, {
+            test: /\.md$/,
+            loader: "html!markdown"
+        }, {
             test: /\.json$/,
             loader: "json"
-        }, {
-            test: /\.cson$/,
-            loader: "cson"
         }, {
             test: /\.(png|jpg)$/,
             loader: 'file?name=img/[name].[ext]' // inline base64 URLs for <=10kb images, direct URLs for the rest
@@ -71,7 +57,7 @@ module.exports = {
         }]
     },
     resolve: {
-        extensions: ['', '.js', '.json', '.cson', '.scss', '.coffee', '.html'],
+        extensions: ['', '.js', '.json', '.scss', '.coffee', '.html'],
         root: [
             path.join(__dirname, 'src'),
             path.join(__dirname, 'node_modules'),
@@ -86,29 +72,25 @@ module.exports = {
         new HtmlWebpackPlugin({
             filename: 'index.html',
             pkg: pkg,
-            serviceWorkerEnabled: projectConfig.serviceWorker.enabled,
             appVersion: getAppVersion(),
             template: path.join(libPath, 'index.html')
         }),
         new webpack.ContextReplacementPlugin(/moment\/locale$/, getRegexAutorizedLanguages()),
-        // new webpack.IgnorePlugin(getRegexAutorizedProgramationLanguages()),
         new webpack.DefinePlugin({
-            IS_PROD: false,
-            IS_TECH: (projectConfig.syntaxHighlighter.enabled)
+            IS_PROD: false
         })
     ]
 };
 
 function getRegexAutorizedLanguages() {
-    return new RegExp(projectConfig.translation.displayed.join('|'));
+    return new RegExp(Object.keys(projectConfig.translation.available).join('|'));
 }
 
-// function getRegexAutorizedProgramationLanguages() {
-//     var completeList = [];
-//     return new RegExp(_.intersection(completeList, projectConfig.syntaxHighlighter.languages).join('|'));
-// }
-
 function getAppVersion() {
-    var config = new cordovaLib.configparser(__dirname + '/config.xml');
-    return config.version();
+    var version,
+        config = fs.readFileSync(__dirname + '/config.xml');
+    parserXml.parseString(config, function(err, result) {
+        version = result.widget.$.version;
+    });
+    return version;
 }
